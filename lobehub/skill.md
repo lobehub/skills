@@ -7,6 +7,8 @@ description: Command-line tool for managing LobeHub services. Use this skill whe
 
 Command-line tool for managing LobeHub Cloud services. Create and run AI agents, manage knowledge bases, generate content, and more — all from the terminal.
 
+> **Beta Version:** This CLI is currently in beta. APIs, commands, and options may change in future releases. Use with caution in production environments. We welcome feedback and bug reports.
+
 > **Important:** Always use the CLI commands below to interact with LobeHub. Do NOT make raw HTTP/API requests — the authentication flow is complex. The CLI handles auth, token refresh, and retries automatically.
 
 ## Usage
