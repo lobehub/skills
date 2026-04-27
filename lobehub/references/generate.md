@@ -2,7 +2,14 @@
 
 Generate text, images, videos, and audio.
 
-> **Note:** Image, video, and audio generation are asynchronous. Use `gen status` to check progress and `gen download` to retrieve results.
+> **Note:** Image, video, and audio generation are asynchronous. Use `gen status` or `gen download` to track progress.
+
+> ⚠️ **ID clarification for `gen status` / `gen download`:**
+> These commands take two arguments: `<generationId>` and `<asyncTaskId>`.
+> - `generationId` — prefixed with `gen_`, e.g. `gen_abc123`
+> - `asyncTaskId` — a UUID printed after `→ Task` in the `gen image` / `gen video` output, e.g. `7ad0eb13-e9a5-4403-8070-1f7fe95b2f95`
+>
+> Passing `gen_xxx` as the second argument will cause a server error with no useful message.
 
 ---
 
@@ -13,77 +20,124 @@ Generate text.
 ### Usage
 
 ```bash
-lh gen text [options]
+lh gen text <prompt> [options]
 ```
+
+### Options
+
+| Option | Description |
+| ------ | ----------- |
+| `-m, --model <model>` | Model ID (default: `openai/gpt-4o-mini`) |
+| `-p, --provider <provider>` | Provider name |
+| `-s, --system <prompt>` | System prompt |
+| `--temperature <n>` | Temperature (0-2) |
+| `--max-tokens <n>` | Maximum output tokens |
+| `--stream` | Enable streaming output |
+| `--json` | Output full JSON response |
+| `--pipe` | Read additional context from stdin |
 
 ### Examples
 
 ```bash
-lh gen text --prompt "Write a haiku about coding"
+lh gen text "Write a haiku about coding"
+cat README.md | lh gen text "summarize this" --pipe
 ```
 
 ---
 
 ## gen image
 
-Generate images.
+Generate images. Async — returns `generationId` and `asyncTaskId` for tracking.
 
 ### Usage
 
 ```bash
-lh gen image [options]
+lh gen image <prompt> [options]
 ```
 
 ### Options
 
 | Option | Description |
 | ------ | ----------- |
-| `--prompt <text>` | Image generation prompt |
-| `--model <model>` | Model to use (e.g., dall-e-3) |
-| `--size <size>` | Image size |
-| `--quality <quality>` | Image quality |
-| `--style <style>` | Image style |
+| `--model <model>` | Model ID (default: `dall-e-3`) |
+| `-p, --provider <provider>` | Provider name (default: `openai`) |
+| `-n, --num <n>` | Number of images |
+| `--width <px>` | Width in pixels |
+| `--height <px>` | Height in pixels |
+| `--seed <n>` | Random seed |
+| `--json` | Output raw JSON |
 
-### Behavior
+### Output
 
-1. Submits the generation request
-2. Returns a generation ID and task ID
-3. Use `gen status` to check progress
-4. Use `gen download` to retrieve the result
+```
+✓ Image generation started
+  Batch ID: gb_xxx
+  Generation gen_abc123 → Task 7ad0eb13-e9a5-4403-8070-1f7fe95b2f95
+                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                               asyncTaskId — use this (not gen_abc123) for status/download
+
+Use "lh gen status <generationId> <asyncTaskId>" to check progress.
+```
 
 ### Examples
 
 ```bash
-# Generate an image
-lh gen image --prompt "A sunset over mountains" --model dall-e-3
-
-# With specific size
-lh gen image --prompt "A cat wearing a hat" --size 1024x1024
+lh gen image "A sunset over mountains" --model dall-e-3
+lh gen image "A cute cat" --model dall-e-3 --provider openai --json
 ```
 
 ---
 
 ## gen video
 
-Generate videos.
+Generate videos. Async — returns `generationId` and `asyncTaskId` for tracking.
 
 ### Usage
 
 ```bash
-lh gen video [options]
+lh gen video <prompt> -m <model> -p <provider> [options]
 ```
 
 ### Options
 
-| Option | Description |
-| ------ | ----------- |
-| `--prompt <text>` | Video generation prompt |
-| `--model <model>` | Model to use |
-| `--duration <sec>` | Video duration |
+| Option | Required | Description |
+| ------ | -------- | ----------- |
+| `-m, --model <model>` | Yes | Model ID — use `lh model list <provider>` to find video models |
+| `-p, --provider <provider>` | Yes | Provider name |
+| `--aspect-ratio <ratio>` | No | e.g. `16:9`, `9:16` |
+| `--duration <sec>` | No | Duration in seconds |
+| `--resolution <res>` | No | e.g. `720p`, `1080p` |
+| `--seed <n>` | No | Random seed |
+| `--image <url>` | No | First-frame image URL (image-to-video) |
+| `--end-image <url>` | No | Last-frame image URL |
+| `--json` | No | Output raw JSON |
 
-### Behavior
+### Output
 
-Asynchronous - returns generation ID and task ID. Use `gen status` and `gen download`.
+```
+✓ Video generation started
+  Batch ID: gb_xxx
+  Generation gen_abc123 → Task 7ad0eb13-e9a5-4403-8070-1f7fe95b2f95
+                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                               asyncTaskId — use this (not gen_abc123) for status/download
+
+Use "lh gen status <generationId> <asyncTaskId>" to check progress.
+```
+
+### Examples
+
+```bash
+# Find available video models
+lh model list volcengine --json | grep -i seedance
+
+# Submit a video generation
+lh gen video "A cat on a runway" -m doubao-seedance-2-0-260128 -p volcengine \
+  --aspect-ratio 9:16 --duration 5 --resolution 1080p
+#   Generation gen_abc123 → Task 7ad0eb13-e9a5-4403-8070-1f7fe95b2f95
+
+# Wait and download (use asyncTaskId — the UUID)
+lh gen download gen_abc123 7ad0eb13-e9a5-4403-8070-1f7fe95b2f95 -o result.mp4 --timeout 600
+```
 
 ---
 
@@ -94,14 +148,13 @@ Generate text-to-speech audio.
 ### Usage
 
 ```bash
-lh gen tts [options]
+lh gen tts <text> [options]
 ```
 
 ### Options
 
 | Option | Description |
 | ------ | ----------- |
-| `--text <text>` | Text to convert to speech |
 | `--model <model>` | TTS model |
 | `--voice <voice>` | Voice to use |
 
@@ -114,14 +167,13 @@ Automatic speech recognition (transcription).
 ### Usage
 
 ```bash
-lh gen asr [options]
+lh gen asr <audioFile> [options]
 ```
 
 ### Options
 
 | Option | Description |
 | ------ | ----------- |
-| `--file <path>` | Audio file to transcribe |
 | `--model <model>` | ASR model |
 
 ---
@@ -130,18 +182,21 @@ lh gen asr [options]
 
 Check generation task status.
 
+> ⚠️ `<asyncTaskId>` is the UUID printed after `→ Task` in the `gen image` / `gen video` output.
+> Do **not** pass `gen_xxx` here — that will cause a server error.
+
 ### Usage
 
 ```bash
-lh gen status <generationId> <taskId> [options]
+lh gen status <generationId> <asyncTaskId> [options]
 ```
 
 ### Arguments
 
-| Argument | Required | Description |
-| -------- | -------- | ----------- |
-| `generationId` | Yes | Generation ID |
-| `taskId` | Yes | Task ID |
+| Argument | Description |
+| -------- | ----------- |
+| `generationId` | Generation ID (`gen_xxx`) |
+| `asyncTaskId` | UUID from `→ Task` in gen output (e.g. `7ad0eb13-xxxx-xxxx-xxxx-xxxxxxxxxxxx`) |
 
 ### Options
 
@@ -151,17 +206,17 @@ lh gen status <generationId> <taskId> [options]
 
 ### Output
 
-Shows the current status of the generation task with color-coded results:
-- **pending** - Task is queued
-- **processing** - Task is being processed
-- **completed** - Task finished successfully
-- **failed** - Task failed
+Color-coded status:
+- **pending** (cyan) — Task is queued
+- **processing** (yellow) — Task is being processed
+- **success** (green) — Task finished successfully
+- **error** (red) — Task failed
 
 ### Examples
 
 ```bash
-lh gen status gen_abc123 task_xyz789
-lh gen status gen_abc123 task_xyz789 --json
+lh gen status gen_abc123 7ad0eb13-e9a5-4403-8070-1f7fe95b2f95
+lh gen status gen_abc123 7ad0eb13-e9a5-4403-8070-1f7fe95b2f95 --json
 ```
 
 ---
@@ -170,44 +225,35 @@ lh gen status gen_abc123 task_xyz789 --json
 
 Wait for generation to complete and download the result.
 
+> ⚠️ `<asyncTaskId>` is the UUID printed after `→ Task` in the `gen image` / `gen video` output.
+> Do **not** pass `gen_xxx` here — that will cause a server error.
+
 ### Usage
 
 ```bash
-lh gen download <generationId> <taskId> [options]
+lh gen download <generationId> <asyncTaskId> [options]
 ```
 
 ### Arguments
 
-| Argument | Required | Description |
-| -------- | -------- | ----------- |
-| `generationId` | Yes | Generation ID |
-| `taskId` | Yes | Task ID |
+| Argument | Description |
+| -------- | ----------- |
+| `generationId` | Generation ID (`gen_xxx`) |
+| `asyncTaskId` | UUID from `→ Task` in gen output (e.g. `7ad0eb13-xxxx-xxxx-xxxx-xxxxxxxxxxxx`) |
 
 ### Options
 
 | Option | Default | Description |
 | ------ | ------- | ----------- |
-| `-o, --output <path>` | - | Output file path |
+| `-o, --output <path>` | `<generationId>.<ext>` | Output file path |
 | `--interval <sec>` | 5 | Polling interval in seconds |
-| `--timeout <sec>` | 300 | Timeout in seconds |
-
-### Behavior
-
-1. Polls the task status at the specified interval
-2. Downloads the result when complete
-3. Times out if task doesn't complete within the timeout period
+| `--timeout <sec>` | 300 | Timeout in seconds (0 = no timeout) |
 
 ### Examples
 
 ```bash
-# Download to auto-named file
-lh gen download gen_abc123 task_xyz789
-
-# Download to specific path
-lh gen download gen_abc123 task_xyz789 -o ./output/image.png
-
-# Faster polling
-lh gen download gen_abc123 task_xyz789 --interval 2 --timeout 600
+lh gen download gen_abc123 7ad0eb13-e9a5-4403-8070-1f7fe95b2f95
+lh gen download gen_abc123 7ad0eb13-e9a5-4403-8070-1f7fe95b2f95 -o ./output/video.mp4 --timeout 600
 ```
 
 ---
@@ -253,26 +299,28 @@ lh gen list [options]
 ### Generate and Download an Image
 
 ```bash
-# 1. Start generation
-lh gen image --prompt "A futuristic city at night" --model dall-e-3
-# Output: Generation started: gen_abc123 task_xyz789
+# 1. Start generation — note BOTH IDs in the output
+lh gen image "A futuristic city at night" --model dall-e-3
+#   Generation gen_abc123 → Task 7ad0eb13-e9a5-4403-8070-1f7fe95b2f95
 
-# 2. Check status (optional)
-lh gen status gen_abc123 task_xyz789
-# Output: Status: processing (45%)
+# 2. (Optional) check status
+lh gen status gen_abc123 7ad0eb13-e9a5-4403-8070-1f7fe95b2f95
 
-# 3. Download when ready
-lh gen download gen_abc123 task_xyz789 -o ./city.png
-# Output: Downloaded to ./city.png
+# 3. Download (pass asyncTaskId — the UUID, not gen_abc123)
+lh gen download gen_abc123 7ad0eb13-e9a5-4403-8070-1f7fe95b2f95 -o ./city.png
 ```
 
 ### Generate and Download a Video
 
 ```bash
-# 1. Start generation
-lh gen video --prompt "A timelapse of clouds moving over mountains"
-# Output: Generation started: gen_def456 task_uvw123
+# 1. Find available video models
+lh model list volcengine --json | grep -i seedance
 
-# 2. Wait and download (longer timeout for video)
-lh gen download gen_def456 task_uvw123 -o ./clouds.mp4 --timeout 600 --interval 10
+# 2. Start generation
+lh gen video "A timelapse of clouds" -m doubao-seedance-2-0-260128 -p volcengine \
+  --aspect-ratio 16:9 --duration 5 --resolution 1080p
+#   Generation gen_def456 → Task a1b2c3d4-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+
+# 3. Wait and download (longer timeout for video)
+lh gen download gen_def456 a1b2c3d4-xxxx-xxxx-xxxx-xxxxxxxxxxxx -o ./clouds.mp4 --timeout 600
 ```
